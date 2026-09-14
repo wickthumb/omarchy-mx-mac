@@ -1,0 +1,39 @@
+name: Installer allocation validation
+on:
+  push:
+    branches: [validation/installer-allocation-tests]
+permissions:
+  contents: read
+jobs:
+  installer-tests:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          swift --version
+      - name: Focused debug tests
+        run: |
+          set -o pipefail
+          npx --yes xcodebuildmcp@2.7.0 swift-package test \
+            --package-path "$GITHUB_WORKSPACE/apps/omarchy-apple-installer" \
+            --configuration debug \
+            --filter 'InstallerAllocationRecommendationTests|InstallerAssetPreparerTests|PinnedAsahiPlanningTests|InstallerSessionTests|PlainLanguageTests' \
+            | tee /tmp/installer-debug.txt
+      - name: Focused release tests
+        run: |
+          set -o pipefail
+          npx --yes xcodebuildmcp@2.7.0 swift-package test \
+            --package-path "$GITHUB_WORKSPACE/apps/omarchy-apple-installer" \
+            --configuration release \
+            --filter 'InstallerAllocationRecommendationTests|InstallerAssetPreparerTests|PinnedAsahiPlanningTests|InstallerSessionTests|PlainLanguageTests' \
+            | tee /tmp/installer-release.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-allocation-test-results
+          path: /tmp/installer-*.txt
